@@ -17,7 +17,7 @@ ENCODER_RIGHT = 0
 KEY = ''
 STATE_UPDATED = False
 LINEAR_STEP_VEL = 0.025
-ANGULAR_STEP_VEL = 0.25
+ANGULAR_STEP_VEL = 0.1
 
 #####################################################
 #             /left_motor/encoder Callback          #
@@ -145,6 +145,16 @@ def control():
             pass
 
         STATE_UPDATED = False
+
+        #####################################################
+        #        READ KEY for emergency exit                #
+        #####################################################
+        if KEY == 'e':
+	    LINEAR_VELOCITY = 0
+            ANGULAR_VELOCITY = 0
+        else:
+            pass
+
 
 
 #####################################################

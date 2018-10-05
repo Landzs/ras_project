@@ -296,7 +296,7 @@ int main(int argc, char* argv[])
   nh.getParam("invert_motor", invert_motor);
   if (serial_number==-1) {
     nh.getParam("serial_number", serial_number);
-  }-
+  }
 
   std::string topic_path = "phidgets/";
   nh.getParam("topic_path", topic_path);
