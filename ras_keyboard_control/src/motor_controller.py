@@ -13,7 +13,7 @@ class motor_controller():
     '''Member variables'''
     def __init__(self):
         self.ENCODER_LEFT = 0
-        self.ENCODER_LEFT = 0
+        self.ENCODER_RIGHT = 0
         self.LINEAR_VELOCITY = 0.0
         self.ANGULAR_VELOCITY = 0.0
         self.control_frequency = 10  # in Hz, so dt = 1/control_frequency
@@ -125,7 +125,7 @@ class motor_controller():
                 error = desired_w - estimated_w
                 print("Error right", error)
 
-                int_error_right = int_error_right + error * dt
+                int_error_right = int_error_right + error * self.dt
 
                 PWM_RIGHT = (int)(self.Kp_right * error + self.Ki_right * int_error_right)
 
