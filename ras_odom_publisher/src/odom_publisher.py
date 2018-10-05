@@ -81,8 +81,8 @@ def publisher():
 
         ODOM.pose.pose.orientation.z = sita
         ODOM.header.stamp = current_time
-        ODOM.header.frame_id = "odom"
-        ODOM.child_frame_id = "base_link"
+        ODOM.header.frame_id = "base_link"
+        ODOM.child_frame_id = "odom"
         pub_odom.publish(ODOM)
 
         rate.sleep()
