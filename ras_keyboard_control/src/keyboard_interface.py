@@ -16,8 +16,8 @@ ENCODER_LEFT = 0
 ENCODER_RIGHT = 0
 KEY = ''
 STATE_UPDATED = False
-LINEAR_STEP_VEL = 0.01
-ANGULAR_STEP_VEL = 0.1
+LINEAR_STEP_VEL = 0.025
+ANGULAR_STEP_VEL = 0.25
 
 #####################################################
 #             /left_motor/encoder Callback          #
@@ -25,8 +25,6 @@ ANGULAR_STEP_VEL = 0.1
 def update_feedback_enc_left(feedback_enc):
     global ENCODER_LEFT
     ENCODER_LEFT = feedback_enc.count_change
-
-
 #	self.FEEDBACK_ENC_UPDATED = True
 
 #####################################################
@@ -35,8 +33,6 @@ def update_feedback_enc_left(feedback_enc):
 def update_feedback_enc_right(feedback_enc):
     global ENCODER_RIGHT
     ENCODER_RIGHT = feedback_enc.count_change
-
-
 #	self.FEEDBACK_ENC_UPDATED = True
 
 

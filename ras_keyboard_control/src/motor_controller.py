@@ -1,15 +1,16 @@
 #!/usr/bin/env python
 
-
 import rospy
 import std_msgs.msg
 import phidgets.msg
 import geometry_msgs.msg
+
 #####################################################
 #               Initialize Variables                #
 #####################################################
 ENCODER_LEFT = 0
 ENCODER_RIGHT = 0
+
 LINEAR_VELOCITY = 0.0
 ANGULAR_VELOCITY = 0.0
 
@@ -18,17 +19,16 @@ ANGULAR_VELOCITY = 0.0
 #             /left_motor/encoder Callback          #
 #####################################################
 def update_feedback_enc_left(feedback_enc):
-    global ENCODER_LEFT
+    global ENCODER_LEFT, ENCODER_LEFT_TEMP, has_updated_left
     ENCODER_LEFT = feedback_enc.count_change
 
-
-#	self.FEEDBACK_ENC_UPDATED = True
+#	self.FEEDBACK_ENC_UPDATED = True 
 
 #####################################################
 #             /right_motor/encoder Callback         #
 #####################################################
 def update_feedback_enc_right(feedback_enc):
-    global ENCODER_RIGHT
+    global ENCODER_RIGHT, ENCODER_RIGHT_TEMP, has_updated_right
     # NOTE THE MINUS SIGN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ENCODER_RIGHT = -feedback_enc.count_change
 
@@ -63,7 +63,7 @@ def controller():
     # global parameters
     pi = 3.14
     control_frequency = 10
-    ticks_per_rev = 900
+    ticks_per_rev = 950
 
     # vehicle parameters
     dt = 0.1
@@ -76,21 +76,22 @@ def controller():
 
     # PID parameters
     Kp_left = 20.0
-    Kp_right = 20.0
-    Ki_left = 15.0
-    Ki_right = 15.0
+    Kp_right = 25.0
+    Ki_left = 30.0
+    Ki_right = 40.0
     Kd_left = 0
     Kd_right = 0
 
     PWM = std_msgs.msg.Float32()
+
     while not rospy.is_shutdown():
         #####################################################
         #            Left Wheels                           #
         #####################################################
         estimated_w = (ENCODER_LEFT * 2 * pi * control_frequency) / (ticks_per_rev)
-        desired_w = (LINEAR_VELOCITY - (base / 2.0) * ANGULAR_VELOCITY) / (wheel_radius * 2 * pi)
+        desired_w = 0.25*(LINEAR_VELOCITY - (base / 2.0) * ANGULAR_VELOCITY) / wheel_radius
 
-	print("est,desired left", estimated_w, desired_w)
+	print("est,desired left", estimated_w, desired_w) 
         error = desired_w - estimated_w
 	print("Error left", error)
 
@@ -104,7 +105,7 @@ def controller():
         #####################################################
 
         estimated_w = (ENCODER_RIGHT * 2 * pi * control_frequency) / (ticks_per_rev)
-        desired_w = (LINEAR_VELOCITY + (base / 2.0) * ANGULAR_VELOCITY) / (wheel_radius * 2 * pi)
+        desired_w = 0.25*(LINEAR_VELOCITY + (base / 2.0) * ANGULAR_VELOCITY) / wheel_radius
 	print("est,desired right", estimated_w, desired_w)
 
         error = desired_w - estimated_w
