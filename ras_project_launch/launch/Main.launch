@@ -1,0 +1,36 @@
+<launch>
+   <node pkg="phidgets" type="motor" name="motor"  >
+	 <param name="_serial" value="473018"/>
+     <param name="__name" value="left_motor"/>
+     <param name="_name" value="left_motor"/>
+  </node>
+
+   <node pkg="phidgets" type="motor" name="motor"  >
+	 <param name="_serial" value="478403"/>
+     <param name="__name" value="right_motor"/>
+     <param name="_name" value="right_motor"/>
+  </node>
+
+   <node pkg="phidgets" type="motor" name="motor"  >
+	 <param name="_serial" value="478403"/>
+     <param name="__name" value="right_motor"/>
+     <param name="_name" value="right_motor"/>
+  </node>
+
+   <node pkg="ras_keyboard_control" type="motor_controller.py" name="motor_controller">
+  </node>
+
+     <node pkg="ras_odom_publisher" type="odom_publisher.py" name="odom_publisher">
+  </node>
+
+     <node pkg="ras_robot_tf" type="tf_broadcaster" name="tf_broadcaster">
+  </node>
+
+
+  <node pkg="tf" type="static_transform_publisher" name="odom_to_map"
+        args="0.2 0.2 0.0 0.0 0 0 1 /map /odom 100" />
+
+  <node pkg="tf" type="static_transform_publisher" name="base_2_laser" args="0 0 0.2 0 0 0 1 /base_link /laser 100" />
+
+
+</launch>
