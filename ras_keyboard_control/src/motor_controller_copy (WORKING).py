@@ -63,7 +63,7 @@ def controller():
     # global parameters
     pi = 3.14
     control_frequency = 10
-    ticks_per_rev = 950*3
+    ticks_per_rev = 897.96*5
 
     # vehicle parameters
     dt = 0.1
@@ -76,7 +76,7 @@ def controller():
 
     # PID parameters
     Kp_left = 30.0
-    Kp_right = 40.0
+    Kp_right = 35.0
     Ki_left = 400.0
     Ki_right = 400.0
     Kd_left = 0
@@ -89,7 +89,7 @@ def controller():
         #            Left Wheels                           #
         #####################################################
         estimated_w = (ENCODER_LEFT * 2 * pi * control_frequency) / (ticks_per_rev)
-        desired_w = 0.33*0.25*(LINEAR_VELOCITY - (base / 2.0) * ANGULAR_VELOCITY) / wheel_radius
+        desired_w = 0.2*0.25*(LINEAR_VELOCITY - (base / 2.0) * ANGULAR_VELOCITY) / wheel_radius
 
 	print("est,desired left", estimated_w, desired_w) 
         error = desired_w - estimated_w
@@ -105,7 +105,7 @@ def controller():
         #####################################################
 
         estimated_w = (ENCODER_RIGHT * 2 * pi * control_frequency) / (ticks_per_rev)
-        desired_w = 0.33*0.25*(LINEAR_VELOCITY + (base / 2.0) * ANGULAR_VELOCITY) / wheel_radius
+        desired_w = 0.33*0.2*(LINEAR_VELOCITY + (base / 2.0) * ANGULAR_VELOCITY) / wheel_radius
 	print("est,desired right", estimated_w, desired_w)
 
         error = desired_w - estimated_w

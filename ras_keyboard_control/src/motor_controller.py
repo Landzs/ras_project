@@ -17,20 +17,28 @@ class motor_controller():
         self.LINEAR_VELOCITY = 0.0
         self.ANGULAR_VELOCITY = 0.0
         self.control_frequency = 10  # in Hz, so dt = 1/control_frequency
-        self.ticks_per_rev = 950*3
+        self.ticks_per_rev = 897.96
 
         # vehicle parameters
-        self.dt = 1/self.control_frequency
-        self.base = 0.24
+        self.dt = 1.0/self.control_frequency
+        self.base = 0.21
         self.wheel_radius = 0.0485
 
         # PID parameters
-        self.Kp_left = 30.0
-        self.Kp_right = 40.0
-        self.Ki_left = 400.0
-        self.Ki_right = 400.0
+        self.Kp_left = 6.0
+        self.Kp_right = 6.0
+        self.Ki_left = 4.0
+        self.Ki_right = 4.0
         self.Kd_left = 0
         self.Kd_right = 0
+
+        self.int_error_left = 0.0
+        self.int_error_right = 0.0
+
+        # LOW PASS VARIABLES
+        self.GAMMA = 0.2
+        self.LP_estimated_w_left = 0.0
+        self.LP_estimated_w_right = 0.0
     
         #####################################################
         #               Initialize Publisher                #
@@ -49,7 +57,7 @@ class motor_controller():
     #####################################################
     def update_feedback_enc_left(self, feedback_enc):
         #global ENCODER_LEFT, ENCODER_LEFT_TEMP, has_updated_left
-        self.ENCODER_LEFT = feedback_enc.count_change
+        self.ENCODER_LEFT = self.ENCODER_LEFT + feedback_enc.count_change
 
     #####################################################
     #             /right_motor/encoder Callback         #
@@ -57,7 +65,7 @@ class motor_controller():
     def update_feedback_enc_right(self, feedback_enc):
         #global ENCODER_RIGHT, ENCODER_RIGHT_TEMP, has_updated_right
         # NOTE THE MINUS SIGN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        self.ENCODER_RIGHT = -feedback_enc.count_change
+        self.ENCODER_RIGHT = self.ENCODER_RIGHT -feedback_enc.count_change
 
     #####################################################
     #             /keyboard/vel Callback                #
@@ -71,63 +79,40 @@ class motor_controller():
     #            Controller Function                    #
     #####################################################
     def controller(self):
-            # # global parameters
-            # pi = 3.14
-            # control_frequency = 10
-            # ticks_per_rev = 950*3
-
-            # # vehicle parameters
-            # dt = 0.1
-            # base = 0.24
-            # wheel_radius = 0.0485
-
-            # error integral part
-            int_error_left = 0.0
-            int_error_right = 0.0
-
-            # # PID parameters
-            # Kp_left = 30.0
-            # Kp_right = 40.0
-            # Ki_left = 400.0
-            # Ki_right = 400.0
-            # Kd_left = 0
-            # Kd_right = 0
-
             PWM = std_msgs.msg.Float32()
 
             while not rospy.is_shutdown():
                 #####################################################
-                #            Left Wheels                           #
+                #            Left Wheel                             #
                 #####################################################
-                estimated_w = (self.ENCODER_LEFT * 2 * np.pi *
-                            self.control_frequency) / (self.ticks_per_rev)
-                desired_w = 0.33*0.25*(self.LINEAR_VELOCITY - (self.base / 2.0)
-                                    * self.ANGULAR_VELOCITY) / self.wheel_radius
-
-                print("est,desired left", estimated_w, desired_w)
-                error = desired_w - estimated_w
+                estimated_w = (self.ENCODER_LEFT * 2 * np.pi * self.control_frequency) / (self.ticks_per_rev)
+                desired_w = (self.LINEAR_VELOCITY - (self.base / 2.0) * self.ANGULAR_VELOCITY) / self.wheel_radius	
+		        
+                self.LP_estimated_w_left = self.GAMMA*estimated_w + (1-self.GAMMA)*self.LP_estimated_w_left
+                print("est, LP, desired left", estimated_w, self.LP_estimated_w_left, desired_w)
+                error = desired_w - self.LP_estimated_w_left
                 print("Error left", error)
 
-                int_error_left = int_error_left + error * self.dt
-
-                PWM_LEFT = (int)(self.Kp_left * error + self.Ki_left * int_error_left)
+                self.int_error_left = self.int_error_left + error * self.dt
+		print(self.int_error_left)
+                PWM_LEFT = (int)(self.Kp_left * error + self.Ki_left * self.int_error_left)
 
                 #####################################################
-                #            Right Wheels                           #
+                #            Right Wheel                            #
                 #####################################################
 
-                estimated_w = (self.ENCODER_RIGHT * 2 * np.pi *
-                            self.control_frequency) / (self.ticks_per_rev)
-                desired_w = 0.33*0.25*(self.LINEAR_VELOCITY + (self.base / 2.0)
-                                    * self.ANGULAR_VELOCITY) / self.wheel_radius
-                print("est,desired right", estimated_w, desired_w)
+                estimated_w = (self.ENCODER_RIGHT * 2 * np.pi * self.control_frequency) / (self.ticks_per_rev)
+                desired_w = (self.LINEAR_VELOCITY + (self.base / 2.0) * self.ANGULAR_VELOCITY) / self.wheel_radius
 
-                error = desired_w - estimated_w
+
+		self.LP_estimated_w_right = self.GAMMA*estimated_w + (1-self.GAMMA)*self.LP_estimated_w_right
+                print("est, LP, desired right", estimated_w, self.LP_estimated_w_right, desired_w)
+                error = desired_w - self.LP_estimated_w_right
                 print("Error right", error)
 
-                int_error_right = int_error_right + error * self.dt
+                self.int_error_right = self.int_error_right + error * self.dt
 
-                PWM_RIGHT = (int)(self.Kp_right * error + self.Ki_right * int_error_right)
+                PWM_RIGHT = (int)(self.Kp_right * error + self.Ki_right * self.int_error_right)
 
                 print("encoder ", self.ENCODER_LEFT, self.ENCODER_RIGHT)
                 print("PWM", PWM_LEFT, PWM_RIGHT)
@@ -140,6 +125,11 @@ class motor_controller():
                 self.pub_LEFT_MOTOR.publish(PWM)
                 PWM.data = -PWM_RIGHT
                 self.pub_RIGHT_MOTOR.publish(PWM)
+
+                # flush the encoders
+                self.ENCODER_LEFT = 0
+                self.ENCODER_RIGHT = 0
+
                 self.rate.sleep()
 
 
