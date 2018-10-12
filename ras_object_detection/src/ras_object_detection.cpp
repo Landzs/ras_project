@@ -8,6 +8,35 @@
 
 using namespace cv;
 
+class maze_object{
+  public:
+    char color;
+    //COLORS REFERENCE
+    //n: not defined, p: purple, b: blue, y: yellow, o: orange, g: green, r: red
+    char shape;
+    //SHAPES REFERENCE
+    //n: not defined, c: cube, s: star, t: triangle, o: sphere, u: cilinder, w: weird shape
+    maze_object(char col = 'n', char shp = 'n');
+    char get_color();
+    void set_color(char col);
+    char get_shape();
+    void set_shape(char shp);
+};
+
+maze_object::maze_object(char col, char shp){
+  color = col;
+  shape = shp;
+}
+char maze_object::get_color(){return color;}
+char maze_object::get_shape(){return shape;}
+void maze_object::set_color(char col){color = col;}
+void maze_object::set_shape(char shp){shape = shp;}
+
+
+bool detectObject(Mat objects[]){
+  return 0;
+}
+
 int main(int argc, char **argv){
   ros::init(argc, argv, "ras_object_detection");
   ros::NodeHandle n;
@@ -31,6 +60,7 @@ int main(int argc, char **argv){
   Mat orange_image;
   Mat purple_image;
   Mat blue_image;
+  Mat objects[6];
 
   while(ros::ok()){
 
@@ -48,23 +78,36 @@ int main(int argc, char **argv){
 
     //Separate the HSV using Hue as threshold for geting colors in image
     inRange(hsv_image, Scalar(40,160,90), Scalar(50,255,200), green_image);
-    inRange(hsv_image, Scalar(1,160,90), Scalar(6,255,200), red_image);
-    inRange(hsv_image, Scalar(16,160,90), Scalar(23,255,200), yellow_image);
-    inRange(hsv_image, Scalar(7,160,90), Scalar(14,255,200), orange_image);
-    inRange(hsv_image, Scalar(145,160,90), Scalar(179,255,200), purple_image);
-    inRange(hsv_image, Scalar(95,160,90), Scalar(105,255,200), blue_image);
+    objects[0] = green_image;
+    inRange(hsv_image, Scalar(1,210,90), Scalar(6,255,160), red_image);
+    objects[1] = red_image;
+    inRange(hsv_image, Scalar(15,210,110), Scalar(22,255,190), yellow_image);
+    objects[2] = yellow_image;
+    inRange(hsv_image, Scalar(7,220,110), Scalar(13,255,205), orange_image);
+    objects[3] = orange_image;
+    inRange(hsv_image, Scalar(142,45,80), Scalar(179,132,150), purple_image);
+    objects[4] = purple_image;
+    inRange(hsv_image, Scalar(90,70,45), Scalar(101,255,150), blue_image);
+    objects[5] = blue_image;
+
+    for(int i=0;i<6;i++){
+      if(countNonZero(objects[i]) > 600){ 
+        //We suppose there is an object when bigger than 18x18 pixels in binary image
+        std::cout<<countNonZero(objects[i])<<std::endl;
+        std::cout<<"Found an object!"<<std::endl;
+        erode(objects[i], objects[i],Mat());
+        dilate(objects[i], objects[i],Mat());
+      }
+
+    }
+
 
 
 
     //Results shown
-    imshow("Green objects", green_image);
-    imshow("Camera image", cam_image);
-    imshow("HSV Output", hsv_image);
-
-
-
-
-
+    //imshow("Green objects", blue_image);
+    //imshow("Camera image", cam_image);
+    //imshow("HSV Output", hsv_image);
 
     if(waitKey(30)==27){
       std::cout<<"esc key pressed"<<std::endl;

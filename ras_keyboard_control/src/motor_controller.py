@@ -5,6 +5,7 @@ import std_msgs.msg
 import phidgets.msg
 import geometry_msgs.msg
 import numpy as np
+import matplotlib.pyplot as plt
 
 '''
 CLASS: motor_controller()
@@ -29,8 +30,8 @@ class motor_controller():
         self.Kp_right = 6.0
         self.Ki_left = 4.0
         self.Ki_right = 4.0
-        self.Kd_left = 0
-        self.Kd_right = 0
+        self.Kd_left = 0.0
+        self.Kd_right = 0.0
 
         self.int_error_left = 0.0
         self.int_error_right = 0.0
@@ -39,6 +40,17 @@ class motor_controller():
         self.GAMMA = 0.2
         self.LP_estimated_w_left = 0.0
         self.LP_estimated_w_right = 0.0
+
+	# plotting
+	self.show_animation = True
+	self.t = 0
+	self.times = [0]
+	self.des_l = [0]
+	self.des_r = [0]
+	self.est_l = [0]
+	self.est_r = [0]
+	self.PWM_l = [0]
+	self.PWM_r = [0]
     
         #####################################################
         #               Initialize Publisher                #
@@ -85,12 +97,12 @@ class motor_controller():
                 #####################################################
                 #            Left Wheel                             #
                 #####################################################
-                estimated_w = (self.ENCODER_LEFT * 2 * np.pi * self.control_frequency) / (self.ticks_per_rev)
-                desired_w = (self.LINEAR_VELOCITY - (self.base / 2.0) * self.ANGULAR_VELOCITY) / self.wheel_radius	
+                estimated_w_l = (self.ENCODER_LEFT * 2 * np.pi * self.control_frequency) / (self.ticks_per_rev)
+                desired_w_l = (self.LINEAR_VELOCITY - (self.base / 2.0) * self.ANGULAR_VELOCITY) / self.wheel_radius	
 		        
-                self.LP_estimated_w_left = self.GAMMA*estimated_w + (1-self.GAMMA)*self.LP_estimated_w_left
-                print("est, LP, desired left", estimated_w, self.LP_estimated_w_left, desired_w)
-                error = desired_w - self.LP_estimated_w_left
+                self.LP_estimated_w_left = self.GAMMA*estimated_w_l + (1-self.GAMMA)*self.LP_estimated_w_left
+                print("est, LP, desired left", estimated_w_l, self.LP_estimated_w_left, desired_w_l)
+                error = desired_w_l - self.LP_estimated_w_left
                 print("Error left", error)
 
                 self.int_error_left = self.int_error_left + error * self.dt
@@ -101,13 +113,13 @@ class motor_controller():
                 #            Right Wheel                            #
                 #####################################################
 
-                estimated_w = (self.ENCODER_RIGHT * 2 * np.pi * self.control_frequency) / (self.ticks_per_rev)
-                desired_w = (self.LINEAR_VELOCITY + (self.base / 2.0) * self.ANGULAR_VELOCITY) / self.wheel_radius
+                estimated_w_r = (self.ENCODER_RIGHT * 2 * np.pi * self.control_frequency) / (self.ticks_per_rev)
+                desired_w_r = (self.LINEAR_VELOCITY + (self.base / 2.0) * self.ANGULAR_VELOCITY) / self.wheel_radius
 
 
-		self.LP_estimated_w_right = self.GAMMA*estimated_w + (1-self.GAMMA)*self.LP_estimated_w_right
-                print("est, LP, desired right", estimated_w, self.LP_estimated_w_right, desired_w)
-                error = desired_w - self.LP_estimated_w_right
+		self.LP_estimated_w_right = self.GAMMA*estimated_w_r + (1-self.GAMMA)*self.LP_estimated_w_right
+                print("est, LP, desired right", estimated_w_r, self.LP_estimated_w_right, desired_w_r)
+                error = desired_w_r - self.LP_estimated_w_right
                 print("Error right", error)
 
                 self.int_error_right = self.int_error_right + error * self.dt
@@ -129,6 +141,23 @@ class motor_controller():
                 # flush the encoders
                 self.ENCODER_LEFT = 0
                 self.ENCODER_RIGHT = 0
+
+		self.times.append(self.t)
+		self.des_l.append(desired_w_l)
+		self.des_r.append(desired_w_r)
+		self.est_l.append(self.LP_estimated_w_left)
+		self.est_r.append(self.LP_estimated_w_right)
+		self.PWM_l.append(PWM_LEFT)
+		self.PWM_r.append(-PWM_RIGHT)
+		self.t = self.t + 1
+
+	        if self.show_animation:
+			plt.cla()
+			plt.plot(self.times, self.des_l, "-r", label="desired l")
+			plt.plot(self.times, self.est_l, "-b", label="estimated l")
+			plt.plot(self.times, self.PWM_l, "-g", label="PWM l")
+			plt.grid(True)
+			plt.pause(0.001)
 
                 self.rate.sleep()
 

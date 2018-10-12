@@ -42,8 +42,8 @@ class Keyboard_Interface:
         self.KEY = ''
         self.STATE_UPDATED_LEFT = False
         self.STATE_UPDATED_RIGHT = False
-        self.LINEAR_STEP_VEL = 0.025
-        self.ANGULAR_STEP_VEL = 0.1
+        self.LINEAR_STEP_VEL = 0.05
+        self.ANGULAR_STEP_VEL = 0.3
         self.VEL_LEFT = 0.0
         self.VEL_RIGHT = 0.0
         self.EST_LINEAR_VELOCITY = 0.0

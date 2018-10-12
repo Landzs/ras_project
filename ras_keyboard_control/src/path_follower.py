@@ -14,12 +14,18 @@ D = 0.15  # look-ahead distance
 L = 0.21  # 24 before
 show_animation = True
 
+# current robot position
 x_odom = 0.0
 y_odom = 0.0
 theta_odom = 0.0
 
+# current target position
+x_target = 0
+y_target = 0
+theta_target = 0
+
 #####################################################
-#             /left_motor/encoder Callback          #
+#             /robot_odom Callback          #
 #####################################################
 def odomCallback(msg):
     global x_odom, y_odom, theta_odom
@@ -27,6 +33,13 @@ def odomCallback(msg):
     y_odom = msg.pose.pose.position.y
     (r, p, y) = tf.transformations.euler_from_quaternion([msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w])
     theta_odom = y
+
+def targetCallback(msg):
+    global x_target, y_target, theta_target
+    x_target = msg.pose.pose.position.x
+    y_target = msg.pose.pose.position.y
+    (r, p, y) = tf.transformations.euler_from_quaternion([msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w])
+    theta_target = y
 
 #####################################################
 #               Initialize Publisher                #
@@ -114,11 +127,15 @@ def calc_target_index(state, path_x, path_y):
     return t_ind
 
 def main():
-    state = State(x=0,y=0,yaw=0)
+    state = State(x=x_odom,y=y_odom,yaw=theta_odom)
     #  target course
-    #path_x = np.arange(0, 3, 0.01)
-    #path_y = [0.5*math.cos(ix / 0.3)-0.5 for ix in path_x]
     
+    '''
+    path_x = np.arange(0, 3, 0.01)
+    path_y = [0.5*math.cos(ix / 0.3)-0.5 for ix in path_x]
+    '''
+    
+    '''
     path_x1 = np.arange(0, 1, 0.01)
     path_x2 = np.empty(100)
     path_x2.fill(1)
@@ -132,7 +149,7 @@ def main():
     print(path_y)
     print(len(path_x))
     print(len(path_y))
-   
+    '''
 
     lastIndex = len(path_x) - 1
     x = [0]
@@ -151,8 +168,8 @@ def main():
 
         ang_vel, target_ind = pure_pursuit_control(state, path_x, path_y, target_ind)
 
-	GAIN = 0.7
-	lin_vel = 0.07
+	GAIN = 1.0
+	lin_vel = 0.20
 	send_message(lin_vel, ang_vel*GAIN)
 	#rate.sleep()
 	print("ang_vel", ang_vel*GAIN)
@@ -160,7 +177,6 @@ def main():
         x.append(x_odom)
         y.append(y_odom)
         yaw.append(theta_odom)
-
 
         if show_animation:
             plt.cla()
