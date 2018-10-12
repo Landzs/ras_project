@@ -42,47 +42,42 @@ class State:
 	self.y = y
 	self.yaw = yaw
 
-def send_message(LINEAR_VELOCITY, ANGULAR_VELOCITY):
-    tf.transformations.quaternion_from_euler()
-
+def send_message(target_position, target_orientation):
     POSE = geometry_msgs.msg.Pose()
-    POSE.position.x = 0
-    POSE.position.y = 0
-    POSE.orientation.z = 0
-    POSE.orientation.w = 0
+    POSE.position.x = target_position[0]
+    POSE.position.y = target_position[1]
+
+    (r, p, y, w) = tf.transformations.quaternion_from_euler(target_orientation[0], target_orientation[1], target_orientation[2])
+    POSE.orientation.z = y
+    POSE.orientation.w = w
+
     pub_target_pose.publish(POSE)
 
-    (r, p, y) = tf.transformations.euler_from_quaternion([msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w])
-
-
-    VEL = geometry_msgs.msg.Twist()
-    VEL.linear.x = LINEAR_VELOCITY
-    VEL.linear.y = 0.0
-    VEL.linear.z = 0.0
-    VEL.angular.x = 0.0
-    VEL.angular.y = 0.0
-    VEL.angular.z = ANGULAR_VELOCITY
-
-    pub_path_following_VEL.publish(VEL)
+    print("message sent to path follower", POSE)
 
 def main():
-    state = "look_for_object"
+    path_following_done = False
+
+    # inital state
+    state = "follow_path"
+
+    target_position = [0.25, 0.0, 0.0]
+    target_orientation = [0.0, 0.0, 0.0]
+    send_message(target_position, target_orientation)
 
     while not rospy.is_shutdown():
-
-        print("is in state", state)
+        #print("is in state", state)
 
         if state == "look_for_object":
-            
-            send_message(lin_vel, ang_vel*GAIN)
-            if (found):
+            #send_message(lin_vel, ang_vel*GAIN)
+            if (object_found):
                 target_position = [0.25, 0, 0]
-                target_orientation = [0.25, 0, 0]
-                publish_new_target
+                target_orientation = [0, 0, 0]
+                send_message(target_position, target_orientation)
                 state = "follow_path"
 
         elif state == "follow_path":
-            if path_following_done == True and found:
+            if path_following_done == True:
                 state = "grip_object"
 
         elif state == "grip_object":
@@ -96,6 +91,7 @@ def main():
             do_the_release
 
         elif state == "stop":
+            print("hello")
 
         rate.sleep()
 

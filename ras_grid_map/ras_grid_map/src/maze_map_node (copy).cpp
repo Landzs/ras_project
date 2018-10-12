@@ -60,6 +60,7 @@ int main(int argc, char **argv)
     ros::NodeHandle n("~");
     ros::Rate r(10);
 
+
     string _map_file;
     string _map_frame = "/map";
     string _map_topic = "/maze_map";

@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import rospy
 import std_msgs.msg
 import geometry_msgs.msg
+from geometry_msgs.msg import Pose
 from nav_msgs.msg import Odometry
 import itertools
 import tf
@@ -24,6 +25,9 @@ x_target = 0
 y_target = 0
 theta_target = 0
 
+# parameters
+follow_new_path = False
+
 #####################################################
 #             /robot_odom Callback          #
 #####################################################
@@ -35,21 +39,27 @@ def odomCallback(msg):
     theta_odom = y
 
 def targetCallback(msg):
-    global x_target, y_target, theta_target
-    x_target = msg.pose.pose.position.x
-    y_target = msg.pose.pose.position.y
+    global x_target, y_target, theta_targetm, follow_new_path
+    x_target = msg.Position.x
+    y_target = msg.Position.y
     (r, p, y) = tf.transformations.euler_from_quaternion([msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w])
     theta_target = y
+
+    print("path follow received new target", msg)
+
+    follow_new_path = True
 
 #####################################################
 #               Initialize Publisher                #
 #####################################################
 rospy.init_node('path_follower_node', anonymous=True)
-pub_path_following_VEL = rospy.Publisher('/keyboard/vel', geometry_msgs.msg.Twist, queue_size=1)
 rate = rospy.Rate(50)
+
+pub_path_following_VEL = rospy.Publisher('/keyboard/vel', geometry_msgs.msg.Twist, queue_size=1)
 
 # odom subscriber
 rospy.Subscriber("/robot_odom", Odometry, odomCallback)
+rospy.Subscriber("/target_pose", Pose, targetCallback)
 
 class State:
     def __init__(self, x=0.0, y=0.0, yaw=0.0):
@@ -58,17 +68,10 @@ class State:
 	self.yaw = yaw
 
 def send_message(LINEAR_VELOCITY, ANGULAR_VELOCITY):
-    	VEL = geometry_msgs.msg.Twist()
-	
-    	if not rospy.is_shutdown():
-		VEL.linear.x = LINEAR_VELOCITY
-        	VEL.linear.y = 0.0
-        	VEL.linear.z = 0.0
-        	VEL.angular.x = 0.0
-        	VEL.angular.y = 0.0
-        	VEL.angular.z = ANGULAR_VELOCITY
-
-        	pub_path_following_VEL.publish(VEL)
+    VEL = geometry_msgs.msg.Twist()
+    VEL.linear.x = LINEAR_VELOCITY
+    VEL.angular.z = ANGULAR_VELOCITY
+    pub_path_following_VEL.publish(VEL)
 
 
 def pure_pursuit_control(state, path_x, path_y, t_ind_prev):
@@ -103,8 +106,6 @@ def pure_pursuit_control(state, path_x, path_y, t_ind_prev):
 
 def calc_target_index(state, path_x, path_y):
     # find the index of the path closest to the robot
-    #print("x,y", state.x,state.y)
- 
     dx = [state.x - icx for icx in path_x]
     dy = [state.y - icy for icy in path_y]
     d = [abs(math.sqrt(idx ** 2 + idy ** 2)) for (idx, idy) in zip(dx, dy)]
@@ -127,83 +128,86 @@ def calc_target_index(state, path_x, path_y):
     return t_ind
 
 def main():
-    state = State(x=x_odom,y=y_odom,yaw=theta_odom)
-    #  target course
-    
-    '''
-    path_x = np.arange(0, 3, 0.01)
-    path_y = [0.5*math.cos(ix / 0.3)-0.5 for ix in path_x]
-    '''
-    
-    '''
-    path_x1 = np.arange(0, 1, 0.01)
-    path_x2 = np.empty(100)
-    path_x2.fill(1)
-    path_y1 = np.empty(100)
-    path_y1.fill(0)
-    path_y2 = np.arange(0, 1, 0.01)
-    
-    path_x = np.append(path_x1, path_x2) 
-    path_y = np.append(path_y1, path_y2) 
-    print(path_x)
-    print(path_y)
-    print(len(path_x))
-    print(len(path_y))
-    '''
+    global follow_new_path
 
-    lastIndex = len(path_x) - 1
-    x = [0]
-    y = [0]
-    yaw = [0]
-    t = [0.0]
-    state.x = x_odom
-    state.y = y_odom
-    state.yaw = theta_odom
-    target_ind = calc_target_index(state, path_x, path_y)
+    while not rospy.is_shutdown():
+        if follow_new_path:
+            follow_new_path = False
+            print("following new track")
+            state = State(x=x_odom,y=y_odom,yaw=theta_odom)
+            #  target course
+            path_x = np.arange(state.x, x_target, 0.01)
+            path_y = np.arange(state.y, y_target, 0.01)
 
-    while lastIndex > target_ind:
-    	state.x = x_odom
-    	state.y = y_odom
-    	state.yaw = theta_odom
+            #path_x = np.arange(0, 3, 0.01)
+            #path_y = [0.5*math.cos(ix / 0.3)-0.5 for ix in path_x]
 
-        ang_vel, target_ind = pure_pursuit_control(state, path_x, path_y, target_ind)
+            path_x1 = np.arange(0, 1, 0.01)
+            path_x2 = np.empty(100)
+            path_x2.fill(1)
+            path_y1 = np.empty(100)
+            path_y1.fill(0)
+            path_y2 = np.arange(0, 1, 0.01)
+            
+            path_x = np.append(path_x1, path_x2) 
+            path_y = np.append(path_y1, path_y2) 
+            print(path_x)
+            print(path_y)
+            print(len(path_x))
+            print(len(path_y))
 
-	GAIN = 1.0
-	lin_vel = 0.20
-	send_message(lin_vel, ang_vel*GAIN)
-	#rate.sleep()
-	print("ang_vel", ang_vel*GAIN)
+            lastIndex = len(path_x) - 1
+            x = [state.x]
+            y = [state.y]
+            yaw = [state.yaw]
+            t = [0.0]
+            state.x = x_odom
+            state.y = y_odom
+            state.yaw = theta_odom
+            target_ind = calc_target_index(state, path_x, path_y)
 
-        x.append(x_odom)
-        y.append(y_odom)
-        yaw.append(theta_odom)
+            while lastIndex > target_ind:
+                state.x = x_odom
+                state.y = y_odom
+                state.yaw = theta_odom
 
-        if show_animation:
-            plt.cla()
-            plt.plot(path_x, path_y, ".r", label="course")
-            plt.plot([x_odom, x_odom + math.cos(theta_odom)], [y_odom, y_odom + math.sin(theta_odom)], "g", label="angle")
-            plt.plot(x, y, "-b", label="trajectory")
-            plt.plot(path_x[target_ind], path_y[target_ind], "xg", label="target")
-            plt.axis("equal")
-            plt.grid(True)
-            plt.pause(0.001)
+                ang_vel, target_ind = pure_pursuit_control(state, path_x, path_y, target_ind)
 
-    # Test
+                GAIN = 1.0
+                lin_vel = 0.20
+                send_message(lin_vel, ang_vel*GAIN)
+                #rate.sleep()
+                print("ang_vel", ang_vel*GAIN)
 
-    send_message(0, 0)
+                x.append(x_odom)
+                y.append(y_odom)
+                yaw.append(theta_odom)
 
-    assert lastIndex >= target_ind, "Cannot goal"
+                if show_animation:
+                    plt.cla()
+                    plt.plot(path_x, path_y, ".r", label="course")
+                    plt.plot([x_odom, x_odom + math.cos(theta_odom)], [y_odom, y_odom + math.sin(theta_odom)], "g", label="angle")
+                    plt.plot(x, y, "-b", label="trajectory")
+                    plt.plot(path_x[target_ind], path_y[target_ind], "xg", label="target")
+                    plt.axis("equal")
+                    plt.grid(True)
+                    plt.pause(0.001)
 
-    if show_animation:
-        plt.plot(path_x, path_y, ".r", label="course")
-        plt.plot(x, y, "-b", label="trajectory")
-        plt.legend()
-        plt.xlabel("x[m]")
-        plt.ylabel("y[m]")
-        plt.axis("equal")
-        plt.grid(True)
-        plt.show()
+                send_message(0, 0)
+                print("PATH FOLLOWING DONE")
 
+                assert lastIndex >= target_ind, "Cannot goal"
+
+            if show_animation:
+                plt.plot(path_x, path_y, ".r", label="course")
+                plt.plot(x, y, "-b", label="trajectory")
+                plt.legend()
+                plt.xlabel("x[m]")
+                plt.ylabel("y[m]")
+                plt.axis("equal")
+                plt.grid(True)
+                plt.show()
+        rate.sleep()
 
 
 if __name__ == '__main__':
