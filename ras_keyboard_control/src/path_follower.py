@@ -13,7 +13,7 @@ import tf
 
 D = 0.15  # look-ahead distance
 L = 0.21  # 24 before
-show_animation = True
+show_animation = False
 
 # current robot position
 x_odom = 0.0
@@ -27,7 +27,7 @@ theta_target = 0
 
 # parameters
 follow_new_path = False
-
+currently_running = False
 #####################################################
 #             /robot_odom Callback          #
 #####################################################
@@ -40,11 +40,10 @@ def odomCallback(msg):
 
 def targetCallback(msg):
     global x_target, y_target, theta_targetm, follow_new_path
-    x_target = msg.Position.x
-    y_target = msg.Position.y
-    (r, p, y) = tf.transformations.euler_from_quaternion([msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w])
+    x_target = msg.position.x
+    y_target = msg.position.y
+    (r, p, y) = tf.transformations.euler_from_quaternion([msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w])
     theta_target = y
-
     print("path follow received new target", msg)
 
     follow_new_path = True
@@ -56,6 +55,7 @@ rospy.init_node('path_follower_node', anonymous=True)
 rate = rospy.Rate(50)
 
 pub_path_following_VEL = rospy.Publisher('/keyboard/vel', geometry_msgs.msg.Twist, queue_size=1)
+pub_flag_done = rospy.Publisher('/flag_done', std_msgs.msg.String, queue_size=1)
 
 # odom subscriber
 rospy.Subscriber("/robot_odom", Odometry, odomCallback)
@@ -128,20 +128,23 @@ def calc_target_index(state, path_x, path_y):
     return t_ind
 
 def main():
-    global follow_new_path
+    global follow_new_path, currently_running, x_target, y_target
 
     while not rospy.is_shutdown():
-        if follow_new_path:
+        if follow_new_path and not currently_running:
             follow_new_path = False
             print("following new track")
             state = State(x=x_odom,y=y_odom,yaw=theta_odom)
             #  target course
-            path_x = np.arange(state.x, x_target, 0.01)
-            path_y = np.arange(state.y, y_target, 0.01)
+            path_x = np.linspace(state.x, x_target, num=100)
+            path_y = np.linspace(state.y, y_target, num=100)
+            #path_x = np.arange(state.x, x_target, 0.01)
+            #path_y = np.arange(state.y, y_target, 0.01)
 
             #path_x = np.arange(0, 3, 0.01)
             #path_y = [0.5*math.cos(ix / 0.3)-0.5 for ix in path_x]
 
+            '''
             path_x1 = np.arange(0, 1, 0.01)
             path_x2 = np.empty(100)
             path_x2.fill(1)
@@ -155,6 +158,9 @@ def main():
             print(path_y)
             print(len(path_x))
             print(len(path_y))
+            '''
+ 
+            print(path_x, path_y)
 
             lastIndex = len(path_x) - 1
             x = [state.x]
@@ -193,10 +199,16 @@ def main():
                     plt.grid(True)
                     plt.pause(0.001)
 
-                send_message(0, 0)
-                print("PATH FOLLOWING DONE")
+            send_message(0, 0)
+            #print("PATH FOLLOWING DONE")
+            currently_running = False
 
-                assert lastIndex >= target_ind, "Cannot goal"
+            flag = std_msgs.msg.String()
+            flag.data = "path_following_done"
+            pub_flag_done.publish(flag)
+
+
+            assert lastIndex >= target_ind, "Cannot goal"
 
             if show_animation:
                 plt.plot(path_x, path_y, ".r", label="course")

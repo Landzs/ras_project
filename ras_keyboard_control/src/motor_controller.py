@@ -19,7 +19,7 @@ class motor_controller():
         self.ANGULAR_VELOCITY = 0.0
         self.control_frequency = 10  # in Hz, so dt = 1/control_frequency
         self.ticks_per_rev = 897.96
-
+        #self.ticks_per_rev = 3591.84
         # vehicle parameters
         self.dt = 1.0/self.control_frequency
         self.base = 0.21
@@ -37,20 +37,21 @@ class motor_controller():
         self.int_error_right = 0.0
 
         # LOW PASS VARIABLES
-        self.GAMMA = 0.2
+        self.GAMMA = 0.3
         self.LP_estimated_w_left = 0.0
         self.LP_estimated_w_right = 0.0
 
-	# plotting
-	self.show_animation = True
-	self.t = 0
-	self.times = [0]
-	self.des_l = [0]
-	self.des_r = [0]
-	self.est_l = [0]
-	self.est_r = [0]
-	self.PWM_l = [0]
-	self.PWM_r = [0]
+        # plotting
+        self.show_animation = True
+        self.t = 0
+        self.times = [0]
+        self.des_l = [0]
+        self.des_r = [0]
+        self.est_l = [0]
+        self.est_l_true = [0]
+        self.est_r = [0]
+        self.PWM_l = [0]
+        self.PWM_r = [0]
     
         #####################################################
         #               Initialize Publisher                #
@@ -97,7 +98,7 @@ class motor_controller():
                 #####################################################
                 #            Left Wheel                             #
                 #####################################################
-                estimated_w_l = (self.ENCODER_LEFT * 2 * np.pi * self.control_frequency) / (self.ticks_per_rev)
+                estimated_w_l = (0.33)*(self.ENCODER_LEFT * 2 * np.pi * self.control_frequency) / (self.ticks_per_rev)
                 desired_w_l = (self.LINEAR_VELOCITY - (self.base / 2.0) * self.ANGULAR_VELOCITY) / self.wheel_radius	
 		        
                 self.LP_estimated_w_left = self.GAMMA*estimated_w_l + (1-self.GAMMA)*self.LP_estimated_w_left
@@ -113,7 +114,7 @@ class motor_controller():
                 #            Right Wheel                            #
                 #####################################################
 
-                estimated_w_r = (self.ENCODER_RIGHT * 2 * np.pi * self.control_frequency) / (self.ticks_per_rev)
+                estimated_w_r = (0.33)*(self.ENCODER_RIGHT * 2 * np.pi * self.control_frequency) / (self.ticks_per_rev)
                 desired_w_r = (self.LINEAR_VELOCITY + (self.base / 2.0) * self.ANGULAR_VELOCITY) / self.wheel_radius
 
 
@@ -142,22 +143,25 @@ class motor_controller():
                 self.ENCODER_LEFT = 0
                 self.ENCODER_RIGHT = 0
 
-		self.times.append(self.t)
-		self.des_l.append(desired_w_l)
-		self.des_r.append(desired_w_r)
-		self.est_l.append(self.LP_estimated_w_left)
-		self.est_r.append(self.LP_estimated_w_right)
-		self.PWM_l.append(PWM_LEFT)
-		self.PWM_r.append(-PWM_RIGHT)
-		self.t = self.t + 1
+                self.times.append(self.t)
+                self.des_l.append(desired_w_l)
+                self.des_r.append(desired_w_r)
+                self.est_l.append(self.LP_estimated_w_left)
+                self.est_l_true.append(estimated_w_l)
+                self.est_r.append(self.LP_estimated_w_right)
+                self.PWM_l.append(PWM_LEFT)
+                self.PWM_r.append(-PWM_RIGHT)
+                self.t = self.t + 1
 
-	        if self.show_animation:
-			plt.cla()
-			plt.plot(self.times, self.des_l, "-r", label="desired l")
-			plt.plot(self.times, self.est_l, "-b", label="estimated l")
-			plt.plot(self.times, self.PWM_l, "-g", label="PWM l")
-			plt.grid(True)
-			plt.pause(0.001)
+                if self.show_animation:
+                    plt.cla()
+                    plt.plot(self.times, self.des_l, "-r", label="desired l")
+                    plt.plot(self.times, self.est_l, "-b", label="estimated l LP")
+                    plt.plot(self.times, self.est_l_true, "-m", label="estimated true")
+                    
+                    plt.plot(self.times, self.PWM_l, "-g", label="PWM l")
+                    plt.grid(True)
+                    plt.pause(0.001)
 
                 self.rate.sleep()
 
