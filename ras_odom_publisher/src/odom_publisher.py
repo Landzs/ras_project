@@ -47,6 +47,7 @@ rate = rospy.Rate(10)
 
 rospy.Subscriber('/left_motor/encoder', phidgets.msg.motor_encoder, update_feedback_enc_left)
 rospy.Subscriber('/right_motor/encoder', phidgets.msg.motor_encoder, update_feedback_enc_right)
+rospy.Subscriber('/reset', std_msgs.msg.Bool, reset_feedback)
 #rospy.spin()
 
 #####################################################
@@ -66,7 +67,7 @@ def publisher():
     control_frequency = 10
     dt = 1.0/control_frequency
     ticks_per_rev = 897.96
-
+    #ticks_per_rev = 3591.84
     while not rospy.is_shutdown():
         current_time = rospy.get_rostime()
         # enc_left and enc_right are local variables for left and right encoders
