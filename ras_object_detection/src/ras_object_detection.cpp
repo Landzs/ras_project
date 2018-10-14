@@ -36,8 +36,10 @@ class maze_object
   float max_depth = 2.0;  
   float min_depth = 0.05; 
   
-
   public:
+
+  Rect bBoxes[6];
+  int max_bBox_ind = 0;
 
   // Subscriber callbacks
   void callback_inputDepth(const sensor_msgs::ImageConstPtr& );
@@ -61,11 +63,21 @@ void maze_object::callback_inputDepth(const sensor_msgs::ImageConstPtr& msg)
 {
   try
   {
-    depth_input = cv_bridge::toCvShare(msg, "32FC1")->image;
-    imshow("Depth", depth_input);
+    // depth_input = cv_bridge::toCvShare(msg, "32FC1")->image;
+    //try : TYPE_16UC1
+    depth_input = cv_bridge::toCvShare(msg, sensor_msgs::image_encodings::TYPE_32FC1)->image;
+    //imshow("Depth", depth_input);
     //imshow("Depth Image", cv_bridge::toCvShare(msg, "32FC1")->image);
-    waitKey(30);
-    cout<<"Depth at 0,0 is: "<<depth_input.at<float>(320,240)<<"\n";
+    //waitKey(30);
+    cout<<"Depth at 320,240 is: \t"<<depth_input.at<float>(240,320)<<"\n";
+    //cout<< depth_input;
+    //cout<<"\n\n\n\n\n\n\n§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§\n\n\n\n\n\n\n";
+    
+    int x_pos = int(bBoxes[max_bBox_ind].x + bBoxes[max_bBox_ind].width/2);
+    int y_pos = int(bBoxes[max_bBox_ind].y + bBoxes[max_bBox_ind].height/2);
+    z_obj = depth_input.at<float>(y_pos, x_pos);
+    cout<<"Depth at "<<x_pos<<" and "<<y_pos<<" is :\t"<<z_obj<<"\n";
+
   }
   catch (cv_bridge::Exception& e)
   {
@@ -184,14 +196,21 @@ void maze_object::display_bBox(Rect *bBox, int ind)
 **********************/
 void maze_object::extract_depth(Rect *bBox, int ind)
 {
-  //cout<<"TRACE";
-  int x_pos = int(bBox[ind].x + bBox[ind].width/2);
-  int y_pos = int(bBox[ind].y + bBox[ind].height/2);
-  //z_obj = depth_input[x_pos, y_pos];
-  //cout<<"TRACE "<<x_pos<<"\t"<<y_pos<<"\n";
-  //z_obj = depth_input.at<float>(y_pos, x_pos);
-  //cout<<"Depth is :"<<z_obj<<"\n";
-  //return 0.0;
+  if(!depth_input.empty())
+  {
+    //cout<<"TRACE";
+    int x_pos = int(bBox[ind].x + bBox[ind].width/2);
+    int y_pos = int(bBox[ind].y + bBox[ind].height/2);
+    //z_obj = depth_input[x_pos, y_pos];
+    //cout<<"TRACE "<<x_pos<<"\t"<<y_pos<<"\n";
+    //z_obj = depth_input.at<float>(y_pos, x_pos);
+    //cout<<"Depth at "<<x_pos<<" and "<<y_pos<<" is :\t"<<depth_input.at<float>(240, 320)<<"\n";
+    
+
+    //cout<< depth_input;
+    //cout<<"\n\n\n\n\n\n\n§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§\n\n\n\n\n\n\n";
+
+  }
 }
 
 /*********************
@@ -202,10 +221,10 @@ int main(int argc, char **argv)
   maze_object object;
   int loop_frequency = 20;
   //Mat rgb_input, depth_input, rgb_output;
-  Rect bBoxes[6];
+  //Rect bBoxes[6];
   int bBox_area = 0;
   int max_bBox_area = 0;
-  int max_bBox_ind = 0;
+  //int max_bBox_ind = 0;
 
   ros::init(argc, argv, "ras_object_detection");
   ros::NodeHandle n;
@@ -215,37 +234,37 @@ int main(int argc, char **argv)
   // namedWindow("view");
   // startWindowThread();
   
-  image_transport::Subscriber depth_sub = it.subscribe("/camera/depth/image_raw", 1, &maze_object::callback_inputDepth, &object);
+  image_transport::Subscriber depth_sub = it.subscribe("/camera/depth_registered/sw_registered/image_rect", 1, &maze_object::callback_inputDepth, &object);
   image_transport::Subscriber rgb_sub = it.subscribe("/camera/rgb/image_rect_color", 1, &maze_object::callback_inputRGB, &object);
   
   while(ros::ok())
   {
     //std::cout<<"Entered While loop \n";
     // Call Color detection for all colors
-    bBoxes[0] = object.detectColor(Scalar(40,160,90), Scalar(50,255,200));  // Green 
-    bBoxes[1] = object.detectColor(Scalar(1,210,90), Scalar(6,255,160));    // Red
-    bBoxes[2] = object.detectColor(Scalar(15,210,110), Scalar(22,255,190)); // Yellow
-    bBoxes[3] = object.detectColor(Scalar(7,220,110), Scalar(13,255,205));  // Orange
-    bBoxes[4] = object.detectColor(Scalar(142,45,80), Scalar(179,132,150)); // purple 
-    bBoxes[5] = object.detectColor(Scalar(90,70,45), Scalar(101,255,150));  // blue 
+    object.bBoxes[0] = object.detectColor(Scalar(40,160,90), Scalar(50,255,200));  // Green 
+    object.bBoxes[1] = object.detectColor(Scalar(1,210,90), Scalar(6,255,160));    // Red
+    object.bBoxes[2] = object.detectColor(Scalar(15,210,110), Scalar(22,255,190)); // Yellow
+    object.bBoxes[3] = object.detectColor(Scalar(7,220,110), Scalar(13,255,205));  // Orange
+    object.bBoxes[4] = object.detectColor(Scalar(142,45,80), Scalar(179,132,150)); // purple 
+    object.bBoxes[5] = object.detectColor(Scalar(90,70,45), Scalar(101,255,150));  // blue 
     
     // find largest bounding box
     for( int i = 0; i < 6; i++)
 		  {
-        bBox_area = int(bBoxes[i].width * bBoxes[i].height);
+        bBox_area = int(object.bBoxes[i].width * object.bBoxes[i].height);
 
         if(bBox_area > max_bBox_area)
         {
            max_bBox_area = bBox_area;
-           max_bBox_ind = i;
+           object.max_bBox_ind = i;
         }
       }
 
       // Extract depth of largest object
-      object.extract_depth(bBoxes, max_bBox_ind);
+      //object.extract_depth(bBoxes, max_bBox_ind);
 
       //Display object with largest bBox 
-      object.display_bBox(bBoxes, max_bBox_ind);
+      object.display_bBox(object.bBoxes, object.max_bBox_ind);
 
     ros::spinOnce();
   }

@@ -35,7 +35,13 @@ def update_feedback_enc_right(feedback_enc):
     # NOTE THE MINUS SIGN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ENCODER_RIGHT = ENCODER_RIGHT -feedback_enc.count_change
 
-
+#####################################################
+#                 /rest Callback                    #
+#####################################################
+def reset_feedback(feedback):
+    global ENCODER_RIGHT
+    # NOTE THE MINUS SIGN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ENCODER_RIGHT = ENCODER_RIGHT -feedback_enc.count_change
 
 
 #####################################################
