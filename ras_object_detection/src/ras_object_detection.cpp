@@ -4,6 +4,9 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <cv_bridge/cv_bridge.h>
 #include <vector>
+#include "std_msgs/String.h"
+#include "std_msgs/Float32MultiArray.h"
+#include <visualization_msgs/Marker.h>
 
 #define DEBUG 0
 
@@ -12,6 +15,7 @@ using namespace std;
 
 class maze_object
 {
+  public:
   // image containers
   Mat rgb_input, depth_input;
 
@@ -28,15 +32,15 @@ class maze_object
   float cy = 223.877;
 
   // Object Position
-  float x_obj = 0;
-  float y_obj = 0;
-  float z_obj = 0;
+  float x_world = 0;
+  float y_world = 0;
+  float z_world = 0;
 
   // Max and Min Depth in meters (0 and 255 respectively on depth image)
   float max_depth = 2.0;  
   float min_depth = 0.05; 
   
-  public:
+  //public:
 
   Rect bBoxes[6];
   int max_bBox_ind = 0;
@@ -48,8 +52,8 @@ class maze_object
   // detecting regions of interest based on color 
   Rect detectColor(Scalar, Scalar);
 
-  // Extract depth of detected object
-  void extract_depth(Rect *, int);
+  // Extract depth of detected object: DELETED
+  //void extract_depth(Rect *, int);
 
   // Display Bounding box which has max area, i.e. dominant color
   void display_bBox(Rect *, int);
@@ -64,20 +68,41 @@ void maze_object::callback_inputDepth(const sensor_msgs::ImageConstPtr& msg)
   try
   {
     // depth_input = cv_bridge::toCvShare(msg, "32FC1")->image;
-    //try : TYPE_16UC1
+    //For camera/depth/ topic, the encoding is : TYPE_16UC1 
     depth_input = cv_bridge::toCvShare(msg, sensor_msgs::image_encodings::TYPE_32FC1)->image;
     //imshow("Depth", depth_input);
     //imshow("Depth Image", cv_bridge::toCvShare(msg, "32FC1")->image);
     //waitKey(30);
-    cout<<"Depth at 320,240 is: \t"<<depth_input.at<float>(240,320)<<"\n";
+
+    //cout<<"Depth at 320,240 is: \t"<<depth_input.at<float>(240,320)<<"\n";
     //cout<< depth_input;
     //cout<<"\n\n\n\n\n\n\n§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§\n\n\n\n\n\n\n";
     
+
+
+    // Extract depth of largest object
     int x_pos = int(bBoxes[max_bBox_ind].x + bBoxes[max_bBox_ind].width/2);
     int y_pos = int(bBoxes[max_bBox_ind].y + bBoxes[max_bBox_ind].height/2);
-    z_obj = depth_input.at<float>(y_pos, x_pos);
-    cout<<"Depth at "<<x_pos<<" and "<<y_pos<<" is :\t"<<z_obj<<"\n";
+    float z_world_temp = depth_input.at<float>(y_pos, x_pos);
+    
+    if(!isnan(z_world_temp))
+    {
+      z_world = -z_world_temp;
 
+    //cout<<"Depth at "<<x_pos<<" and "<<y_pos<<" is :\t"<<z_world<<"\n";
+      // Calculate world coordinates
+      x_world = (x_pos - cx) / fx * z_world;//(y_pos - cy) / fy * z_world;
+      y_world = -(y_pos - cy) / fy * z_world;//(x_pos - cx) / fx * z_world;
+      //y_world = - y_world;    // based on observation
+    }
+    else
+    {
+      x_world = z_world_temp;
+      y_world = z_world_temp;
+      z_world = z_world_temp;
+    }
+
+    //cout<<"World coordinates of object, w.r.t. camera are: "<<x_world<<" ,"<<y_world<<" ,"<<z_world<<"\n"; 
   }
   catch (cv_bridge::Exception& e)
   {
@@ -192,28 +217,6 @@ void maze_object::display_bBox(Rect *bBox, int ind)
 
 
 /*********************
-  extract_depth
-**********************/
-void maze_object::extract_depth(Rect *bBox, int ind)
-{
-  if(!depth_input.empty())
-  {
-    //cout<<"TRACE";
-    int x_pos = int(bBox[ind].x + bBox[ind].width/2);
-    int y_pos = int(bBox[ind].y + bBox[ind].height/2);
-    //z_obj = depth_input[x_pos, y_pos];
-    //cout<<"TRACE "<<x_pos<<"\t"<<y_pos<<"\n";
-    //z_obj = depth_input.at<float>(y_pos, x_pos);
-    //cout<<"Depth at "<<x_pos<<" and "<<y_pos<<" is :\t"<<depth_input.at<float>(240, 320)<<"\n";
-    
-
-    //cout<< depth_input;
-    //cout<<"\n\n\n\n\n\n\n§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§§\n\n\n\n\n\n\n";
-
-  }
-}
-
-/*********************
   MAIN
 **********************/
 int main(int argc, char **argv)
@@ -222,11 +225,13 @@ int main(int argc, char **argv)
   int loop_frequency = 20;
   //Mat rgb_input, depth_input, rgb_output;
   //Rect bBoxes[6];
-  int bBox_area = 0;
-  int max_bBox_area = 0;
   //int max_bBox_ind = 0;
 
+  // create an object of std::msg::String type for state mc message
+  std_msgs::String sm_msg;
+  std::stringstream ss;
   ros::init(argc, argv, "ras_object_detection");
+  
   ros::NodeHandle n;
   ros::Rate loop_rate(loop_frequency);
   image_transport::ImageTransport it(n);
@@ -234,20 +239,36 @@ int main(int argc, char **argv)
   // namedWindow("view");
   // startWindowThread();
   
+  // Subscribers to RGB and Depth image
   image_transport::Subscriber depth_sub = it.subscribe("/camera/depth_registered/sw_registered/image_rect", 1, &maze_object::callback_inputDepth, &object);
   image_transport::Subscriber rgb_sub = it.subscribe("/camera/rgb/image_rect_color", 1, &maze_object::callback_inputRGB, &object);
   
+  // Publisher for message to state machine
+  ros::Publisher state_machine_pub = n.advertise<std_msgs::String>("/flag_done", 1); 
+  
+  // Publisher for publishing object coordinates
+  ros::Publisher obj_pose_pub = n.advertise<std_msgs::Float32MultiArray>("/object_position", 100);
+  
+  // Publisher for rviz marker
+  ros::Publisher marker_pub = n.advertise<visualization_msgs::Marker>("/object_marker", 1);
+
   while(ros::ok())
   {
+    int bBox_area = 0;
+    int max_bBox_area = 0;
     //std::cout<<"Entered While loop \n";
     // Call Color detection for all colors
+    #if(DEBUG == 0)
     object.bBoxes[0] = object.detectColor(Scalar(40,160,90), Scalar(50,255,200));  // Green 
     object.bBoxes[1] = object.detectColor(Scalar(1,210,90), Scalar(6,255,160));    // Red
     object.bBoxes[2] = object.detectColor(Scalar(15,210,110), Scalar(22,255,190)); // Yellow
     object.bBoxes[3] = object.detectColor(Scalar(7,220,110), Scalar(13,255,205));  // Orange
     object.bBoxes[4] = object.detectColor(Scalar(142,45,80), Scalar(179,132,150)); // purple 
     object.bBoxes[5] = object.detectColor(Scalar(90,70,45), Scalar(101,255,150));  // blue 
-    
+    #else
+    object.bBoxes[5] = object.detectColor(Scalar(90,70,45), Scalar(101,255,150));  // blue 
+    #endif
+
     // find largest bounding box
     for( int i = 0; i < 6; i++)
 		  {
@@ -260,11 +281,75 @@ int main(int argc, char **argv)
         }
       }
 
-      // Extract depth of largest object
-      //object.extract_depth(bBoxes, max_bBox_ind);
+    //cout<<max_bBox_area<<"\n";
+    if(max_bBox_area > 1000)
+    {
+      // Publish message to state machine: object found
+      std::cout<<"object found!"<<std::endl;
+      string flag_string = "detect_object_done";
+      //ss << "detect_object_done";
+      //sm_msg.data = ss.str();
+      sm_msg.data = flag_string;
+      state_machine_pub.publish(sm_msg);
 
-      //Display object with largest bBox 
-      object.display_bBox(object.bBoxes, object.max_bBox_ind);
+      // Publish object coordinates
+      // create a float array message
+      std_msgs::Float32MultiArray object_position;
+      //Clear array
+      object_position.data.clear();
+
+      object_position.data.push_back(object.x_world);
+      object_position.data.push_back(object.y_world);
+      object_position.data.push_back(object.z_world);
+
+      obj_pose_pub.publish(object_position);
+
+
+      // Publish a marker for detected object
+      visualization_msgs::Marker marker;
+      // Set the frame ID and timestamp.  See the TF tutorials for information on these.
+      marker.header.frame_id = "/camera_link";
+      marker.header.stamp = ros::Time::now();
+
+      // Set the namespace and id for this marker.  This serves to create a unique ID
+      // Any marker sent with the same namespace and id will overwrite the old one
+      marker.ns = "detected object";
+      marker.id = 0;
+
+      // Set the marker type.  Initially this is CUBE, and cycles between that and SPHERE, ARROW, and CYLINDER
+      marker.type = visualization_msgs::Marker::CUBE;;
+
+      // Set the marker action.  Options are ADD, DELETE, and new in ROS Indigo: 3 (DELETEALL)
+      marker.action = visualization_msgs::Marker::ADD;
+
+      // Set the pose of the marker.  This is a full 6DOF pose relative to the frame/time specified in the header
+      marker.pose.position.x = object.x_world;
+      marker.pose.position.y = object.y_world;
+      marker.pose.position.z = object.z_world;
+      marker.pose.orientation.x = 0.0;
+      marker.pose.orientation.y = 0.0;
+      marker.pose.orientation.z = 0.0;
+      marker.pose.orientation.w = 1.0;
+
+      // Set the scale of the marker -- 1x1x1 here means 1m on a side
+      marker.scale.x = 0.05;
+      marker.scale.y = 0.05;
+      marker.scale.z = 0.05;
+
+      // Set the color -- be sure to set alpha to something non-zero!
+      marker.color.r = 0.0f;
+      marker.color.g = 1.0f;
+      marker.color.b = 0.0f;
+      marker.color.a = 1.0;
+
+      marker.lifetime = ros::Duration(0.25);
+
+      marker_pub.publish(marker);
+      loop_rate.sleep();
+    }
+    
+    //Display object with largest bBox 
+    object.display_bBox(object.bBoxes, object.max_bBox_ind);
 
     ros::spinOnce();
   }
