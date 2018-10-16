@@ -24,7 +24,7 @@ int main(int argc, char** argv){
 
   ros::Subscriber sub = n.subscribe("/robot_odom", 1, odomCallback);
 
-  ros::Rate r(1000);
+  ros::Rate r(10);
 
   tf::TransformBroadcaster broadcaster;
   tf::Quaternion q_temp;

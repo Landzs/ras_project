@@ -42,12 +42,8 @@ class maze_object
   // float y_world = 0;
   // float z_world = 0;
 
-  geometry_msgs::PointStamped base_point;
+  //geometry_msgs::PointStamped base_point;
   geometry_msgs::PointStamped object_point;
-  object_point.header.frame_id = "objects";
-
-  //we'll just use the most recent transform available for our simple example
-  object_point.header.stamp = ros::Time();
 
   // Max and Min Depth in meters (0 and 255 respectively on depth image)
   float max_depth = 2.0;  
@@ -72,7 +68,7 @@ class maze_object
   void display_bBox(Rect *, int);
 
   // Transform object to map
-  void maze_object::transformPoint(const tf::TransformListener&);
+  //void maze_object::transformPoint(const tf::TransformListener&);
 };
 
 
@@ -107,15 +103,13 @@ void maze_object::callback_inputDepth(const sensor_msgs::ImageConstPtr& msg)
 
     //cout<<"Depth at "<<x_pos<<" and "<<y_pos<<" is :\t"<<z_world<<"\n";
       // Calculate world coordinates
-      
-      object_point.point.x = (x_pos - cx) / fx * z_world;//(y_pos - cy) / fy * z_world;
-      object_point.point.y = -(y_pos - cy) / fy * z_world;//(x_pos - cx) / fx * z_world;
+      object_point.header.frame_id = "objects";
+
+      //we'll just use the most recent transform available for our simple example
+      object_point.header.stamp = ros::Time();
+      object_point.point.x = (x_pos - cx) / fx * z_world_temp;//(y_pos - cy) / fy * z_world;
+      object_point.point.y = -(y_pos - cy) / fy * z_world_temp;//(x_pos - cx) / fx * z_world;
       object_point.point.y = - object_point.point.y;    // based on observation
-
-      tf::TransformListener listener(ros::Duration(20));
-
-      //we'll transform a point once every second
-      ros::Timer timer = n.createTimer(ros::Duration(0.1), boost::bind(&transformPoint, boost::ref(listener)));
     }
     else
     {
@@ -242,21 +236,21 @@ void maze_object::display_bBox(Rect *bBox, int ind)
   Transform objects
 **********************/
 
-void maze_object::transformPoint(const tf::TransformListener& listener)
-{
-  try
-  {
-    listener.transformPoint("base_link", object_point, base_point);
+// void transformPoint(const tf::TransformListener& listener)
+// {
+//   try
+//   {
+//     listener.transformPoint("base_link", object_point, base_point);
 
-    ROS_INFO("base_object: (%.2f, %.2f. %.2f) -----> base_link: (%.2f, %.2f, %.2f) at time %.2f",
-        object_point.point.x, object_point.point.y, object_point.point.z,
-        base_point.point.x, base_point.point.y, base_point.point.z, base_point.header.stamp.toSec());
-  }
-  catch(tf::TransformException& ex)
-  {
-    ROS_ERROR("Received an exception trying to transform a point from \"base_laser\" to \"base_link\": %s", ex.what());
-  }
-}
+//     ROS_INFO("base_object: (%.2f, %.2f. %.2f) -----> base_link: (%.2f, %.2f, %.2f) at time %.2f",
+//         object_point.point.x, object_point.point.y, object_point.point.z,
+//         base_point.point.x, base_point.point.y, base_point.point.z, base_point.header.stamp.toSec());
+//   }
+//   catch(tf::TransformException& ex)
+//   {
+//     ROS_ERROR("Received an exception trying to transform a point from \"base_laser\" to \"base_link\": %s", ex.what());
+//   }
+// }
 
 /*********************
   MAIN
@@ -290,7 +284,7 @@ int main(int argc, char **argv)
   
   // Publisher for publishing object coordinates
   //ros::Publisher obj_pose_pub = n.advertise<std_msgs::Float32MultiArray>("/object_position", 100);
-  ros::Publisher obj_pose_pub = n.advertise<geometry_msgs::PointStamped>("/object_position", 100);
+  ros::Publisher obj_pose_pub = n.advertise<geometry_msgs::PointStamped>("/object_position_cam_link", 100);
   
   // Publisher for rviz marker
   ros::Publisher marker_pub = n.advertise<visualization_msgs::Marker>("/object_marker", 1);
@@ -345,6 +339,12 @@ int main(int argc, char **argv)
       // object_position.data.push_back(object.y_world);
       // object_position.data.push_back(object.z_world);
 
+      // tf::TransformListener listener(ros::Duration(20));
+
+      // //we'll transform a point once every second
+      // ros::Timer timer = n.createTimer(ros::Duration(0.1), boost::bind(transformPoint, boost::ref(listener)));
+
+
       //obj_pose_pub.publish(object_position);
       obj_pose_pub.publish(object.base_point);
 
@@ -367,9 +367,9 @@ int main(int argc, char **argv)
       marker.action = visualization_msgs::Marker::ADD;
 
       // Set the pose of the marker.  This is a full 6DOF pose relative to the frame/time specified in the header
-      marker.pose.position.x = object.object_point.x;
-      marker.pose.position.y = object.object_point.y;
-      marker.pose.position.z = object.object_point.z;
+      marker.pose.position.x = object.object_point.point.x;
+      marker.pose.position.y = object.object_point.point.y;
+      marker.pose.position.z = object.object_point.point.z;
       marker.pose.orientation.x = 0.0;
       marker.pose.orientation.y = 0.0;
       marker.pose.orientation.z = 0.0;

@@ -1,0 +1,6 @@
+<launch>
+  <!-- launch realsense launch file -->
+  <include file="$(find realsense_camera)/launch/sr300_nodelet_rgbd.launch" />
+  
+  <node pkg="ras_object_detection" type="ras_object_detection" name="ras_object_detection">  </node>
+</launch>

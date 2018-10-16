@@ -185,8 +185,8 @@ class Keyboard_Interface:
             #        READ KEY for reset odom                    #
             #####################################################
             if self.KEY == 'r':
-		msg = std_msgs.msg.Bool()
-		msg.data = True
+                msg = std_msgs.msg.Bool()
+                msg.data = True
                 self.pub_KEYBOARD_RESET.publish(msg)
             else:
                 pass

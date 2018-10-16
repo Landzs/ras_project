@@ -15,7 +15,7 @@ ENCODER_LEFT = 0
 ENCODER_RIGHT = 0
 LINEAR_VELOCITY = 0.0
 ANGULAR_VELOCITY = 0.0
-
+RESET = False
 
 #####################################################
 #             /left_motor/encoder Callback          #
@@ -36,12 +36,14 @@ def update_feedback_enc_right(feedback_enc):
     ENCODER_RIGHT = ENCODER_RIGHT -feedback_enc.count_change
 
 #####################################################
-#                 /rest Callback                    #
+#                  /odom_reset Callback             #
 #####################################################
-def reset_feedback(feedback):
-    global ENCODER_RIGHT
-    # NOTE THE MINUS SIGN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    ENCODER_RIGHT = ENCODER_RIGHT -feedback_enc.count_change
+def reset_feedback(feedback_reset):
+    global RESET
+    if feedback_reset.data == True:
+        RESET = True
+    else:
+        pass
 
 
 #####################################################
@@ -53,14 +55,14 @@ rate = rospy.Rate(10)
 
 rospy.Subscriber('/left_motor/encoder', phidgets.msg.motor_encoder, update_feedback_enc_left)
 rospy.Subscriber('/right_motor/encoder', phidgets.msg.motor_encoder, update_feedback_enc_right)
-rospy.Subscriber('/reset', std_msgs.msg.Bool, reset_feedback)
+rospy.Subscriber('/odom_reset', std_msgs.msg.Bool, reset_feedback)
 #rospy.spin()
 
 #####################################################
 #            Controller Function                    #
 #####################################################
 def publisher():
-    global LINEAR_VELOCITY, ANGULAR_VELOCITY, ENCODER_LEFT, ENCODER_RIGHT
+    global LINEAR_VELOCITY, ANGULAR_VELOCITY, ENCODER_LEFT, ENCODER_RIGHT,RESET
 
     ODOM = Odometry()
     base = 0.21 
@@ -97,6 +99,14 @@ def publisher():
         #print(sita )
         x = x + 0.5 * (v_left + v_right) * math.cos(sita)*dt
         y = y + 0.5 * (v_left + v_right) * math.sin(sita)*dt
+        if RESET:
+            x = 0
+            y = 0
+            sita = 0
+            RESET = False
+        else:
+            pass       
+
         print(x, y)
         ODOM.pose.pose.position.x = x
         ODOM.pose.pose.position.y = y

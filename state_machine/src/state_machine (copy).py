@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import rospy
 import std_msgs.msg
 from std_msgs.msg import String
-from std_msgs.msg import Float32MultiArray
 import geometry_msgs.msg
 from nav_msgs.msg import Odometry
 import itertools
@@ -27,9 +26,9 @@ class StateMachine:
         self.pub_test = rospy.Publisher('/hello', std_msgs.msg.String, queue_size=1)
         self.pub_target_pose = rospy.Publisher('/target_pose', geometry_msgs.msg.Pose, queue_size=1)
 
-        self.pub_RESET = rospy.Publisher('/odom_reset', std_msgs.msg.Bool, queue_size=1)
+
         self.rate = rospy.Rate(10)
-        self.RESET = True
+
         
         # initialize members
 
@@ -51,21 +50,17 @@ class StateMachine:
     #             /robot_odom Callback          #
     #####################################################
     def flagCallback(self, msg):
+
         flag = msg.data
-        if flag == "detect_object_done" and self.state == "look_for_object": 
+        if flag == "detect_object_done" and self.state == "look_for_object":
             self.detect_object_done = True
-            print("detect_object_done")
-        elif flag == "path_following_done" and self.path_following_done == False:
+        elif flag == "path_following_done":
             self.path_following_done = True
-            print("path_following_done")
         elif flag == "grip_done":
             pass
         elif flag == "release_done":
             pass
 
-    def objPositionCallback(self, msg):
-        #print(msg.data) 
-        pass
 
     def send_message(self, target_position, target_orientation):
         POSE = geometry_msgs.msg.Pose()
@@ -76,37 +71,37 @@ class StateMachine:
         POSE.orientation.z = y
         POSE.orientation.w = w
         self.pub_target_pose.publish(POSE)
-        #print("message sent to path follower", POSE)
+
+        print("message sent to path follower", POSE)
 
     def state_loop(self):
-        #print("is in state: " + self.state)
-
         try:
             grip = rospy.ServiceProxy('/arduino_servo_control/set_servo_angles', SetServoAngles)
             grip(0, 180)
         except rospy.ServiceException, e:
-            print("Service call failed: %s")
+            print "Service call failed: %s"
 
-        time.sleep(3)
-        msg = std_msgs.msg.Bool()
-        msg.data = True
-        self.pub_RESET.publish(msg)
+
         while not rospy.is_shutdown():
+            print("is in state: " + self.state)
+
             if self.state == "look_for_object":
                 #send_message(lin_vel, ang_vel*GAIN)
 
                 if (self.detect_object_done):
+
                     # specify new target pose
-                    self.target_position = [0.35, 0.0, 0.0]
+                    self.target_position = [0.50, 0.0, 0.0]
                     self.target_orientation = [0.0, 0.0, 0.0]
                     self.state = "follow_path"
                     self.detect_object_done = False
-                    print("New target position:", self.target_position)
 
             elif self.state == "follow_path":
                 self.send_message(self.target_position, self.target_orientation)
 
                 if self.path_following_done == True:
+                    print("Path following done")
+
                     if self.gripper_flag == "close":
                         time.sleep(2)
                         self.state = "grip_object"
@@ -116,25 +111,24 @@ class StateMachine:
                         self.path_following_done = False
 
             elif self.state == "grip_object":
-                print("Gripping the object")                
+                print("Should now grip the object")                
                 try:
                     grip = rospy.ServiceProxy('/arduino_servo_control/set_servo_angles', SetServoAngles)
                     grip(60, 120)
                     time.sleep(3)
 
                     # specify new target pose
-                    self.target_position = [-0.15, 0.0, 0.0]
+                    self.target_position = [1.0, 0.0, 0.0]
                     self.target_orientation = [0.0, 0.0, 0.0]
                     self.state = "follow_path"
                     self.gripper_flag = "release"
                     self.path_following_done = False
-                    print("New target position:", self.target_position)
 
                 except rospy.ServiceException, e:
                     print "Service call failed: %s"
 
             elif self.state == "release_object":
-                print("Releasing the object")                
+                print("Should now release the object")                
                 try:
                     grip = rospy.ServiceProxy('/arduino_servo_control/set_servo_angles', SetServoAngles)
                     grip(0, 180)
@@ -142,13 +136,13 @@ class StateMachine:
 
                     # task is done
                     self.state = "stop"
-                    print("Task done")  
+ 
 
                 except rospy.ServiceException, e:
                     print "Service call failed: %s"
 
             elif self.state == "stop":
-                pass
+                print("Task done")  
             self.rate.sleep()
 
 	
@@ -159,10 +153,10 @@ if __name__ == '__main__':
 
     sm = StateMachine()
 
+
     # subscribers
     #rospy.Subscriber("/robot_odom", Odometry, odomCallback)
     rospy.Subscriber("/flag_done", String, sm.flagCallback)
-    rospy.Subscriber("/object_position", Float32MultiArray, sm.objPositionCallback)
 
     sm.state_loop()
 
