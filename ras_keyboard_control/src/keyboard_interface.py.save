@@ -51,12 +51,13 @@ class Keyboard_Interface:
 
 
 
-        #####################################################
+        R#####################################################
         #             Initialize ROS Parameter              #
         #####################################################
         rospy.init_node('keyboard_interface_node', anonymous=True)
-	self.pub_KEYBOARD_RESET = rospy.Publisher('/odom_reset', std_msgs.msg.Bool, queue_size=1)
         self.pub_KEYBOARD_VEL = rospy.Publisher('/keyboard/vel', geometry_msgs.msg.Twist, queue_size=1)
+	self.pub_KEYBOARD_VEL = rospy.Publisher('/keyboard/vel', geometry_msgs.msg.Twist, queue_size=1)
+
         self.rate = rospy.Rate(10)
 
         rospy.Subscriber('/left_motor/encoder', phidgets.msg.motor_encoder, self.update_feedback_enc_left)
@@ -140,7 +141,6 @@ class Keyboard_Interface:
             print("#####################################" + '\r')
             print("LINEAR_VELOCITY:    [     w | s    ]" + '\r')
             print("ANGULAR_VELOCITY:   [     a | d    ]" + '\r')
-            print("RESET_ODOM:         [       r      ]" + '\r')
             print("EMERGENCY STOP:     [       e      ]" + '\r')
             print("QUIT:               [       q      ]" + '\r')
             print("#####################################" + '\r')
@@ -181,15 +181,6 @@ class Keyboard_Interface:
             else:
                 pass
 
-            #####################################################
-            #        READ KEY for reset odom                    #
-            #####################################################
-            if self.KEY == 'r':
-		msg = std_msgs.msg.Bool()
-		msg.data = True
-                self.pub_KEYBOARD_RESET.publish(msg)
-            else:
-                pass
 
 
             #####################################################

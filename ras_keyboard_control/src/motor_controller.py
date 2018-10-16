@@ -27,7 +27,7 @@ class motor_controller():
 
         # PID parameters
         self.Kp_left = 6.0
-        self.Kp_right = 6.0
+        self.Kp_right = 7.0
         self.Ki_left = 4.0
         self.Ki_right = 4.0
         self.Kd_left = 0.0
@@ -42,7 +42,7 @@ class motor_controller():
         self.LP_estimated_w_right = 0.0
 
         # plotting
-        self.show_animation = True
+        self.show_animation = False
         self.t = 0
         self.times = [0]
         self.des_l = [0]
@@ -133,6 +133,8 @@ class motor_controller():
                 if (abs(self.LINEAR_VELOCITY) < 0.001 and abs(self.ANGULAR_VELOCITY) < 0.001):
                     PWM_LEFT = 0
                     PWM_RIGHT = 0
+                    self.int_error_left = 0
+                    self.int_error_right = 0 
 
                 PWM.data = PWM_LEFT
                 self.pub_LEFT_MOTOR.publish(PWM)

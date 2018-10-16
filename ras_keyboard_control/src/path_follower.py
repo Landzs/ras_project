@@ -25,6 +25,9 @@ x_target = 0
 y_target = 0
 theta_target = 0
 
+# HEADING DIFFERENCE
+alpha = 0
+
 # parameters
 follow_new_path = False
 currently_running = False
@@ -75,6 +78,8 @@ def send_message(LINEAR_VELOCITY, ANGULAR_VELOCITY):
 
 
 def pure_pursuit_control(state, path_x, path_y, t_ind_prev):
+    global alpha
+
     t_ind = calc_target_index(state, path_x, path_y)
 
     # if the previous target was further away on the path than now, use that instead
@@ -128,7 +133,7 @@ def calc_target_index(state, path_x, path_y):
     return t_ind
 
 def main():
-    global follow_new_path, currently_running, x_target, y_target
+    global follow_new_path, currently_running, x_target, y_target, alpha
 
     while not rospy.is_shutdown():
         if follow_new_path and not currently_running:
@@ -177,13 +182,28 @@ def main():
                 state.y = y_odom
                 state.yaw = theta_odom
 
+
+                lin_vel = 0
+                ang_vel = 0
+
                 ang_vel, target_ind = pure_pursuit_control(state, path_x, path_y, target_ind)
 
-                GAIN = 1.0
-                lin_vel = 0.20
-                send_message(lin_vel, ang_vel*GAIN)
+                # motor controller commands
+                
+                if alpha > 3.141/1.5:
+                    lin_vel = 0
+                    ang_vel = -0.8
+                elif alpha < -3.141/1.5:
+                    lin_vel = 0
+                    ang_vel = 0.8
+                else:
+                    lin_vel = 0.08
+
+                steering_gain = 1.0
+
+                send_message(lin_vel, ang_vel*steering_gain)
                 #rate.sleep()
-                print("ang_vel", ang_vel*GAIN)
+                print("ang_vel", ang_vel*steering_gain)
 
                 x.append(x_odom)
                 y.append(y_odom)
