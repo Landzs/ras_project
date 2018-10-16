@@ -5,8 +5,14 @@
 #include <cv_bridge/cv_bridge.h>
 #include <vector>
 #include "std_msgs/String.h"
+// for sending an array as message
 #include "std_msgs/Float32MultiArray.h"
+// for visualizing marker on ros
 #include <visualization_msgs/Marker.h>
+// point stamped point for target position of object
+#include <geometry_msgs/PointStamped.h>
+#include <tf/transform_listener.h>
+
 
 #define DEBUG 0
 
@@ -32,9 +38,16 @@ class maze_object
   float cy = 223.877;
 
   // Object Position
-  float x_world = 0;
-  float y_world = 0;
-  float z_world = 0;
+  // float x_world = 0;
+  // float y_world = 0;
+  // float z_world = 0;
+
+  geometry_msgs::PointStamped base_point;
+  geometry_msgs::PointStamped object_point;
+  object_point.header.frame_id = "objects";
+
+  //we'll just use the most recent transform available for our simple example
+  object_point.header.stamp = ros::Time();
 
   // Max and Min Depth in meters (0 and 255 respectively on depth image)
   float max_depth = 2.0;  
@@ -57,6 +70,9 @@ class maze_object
 
   // Display Bounding box which has max area, i.e. dominant color
   void display_bBox(Rect *, int);
+
+  // Transform object to map
+  void maze_object::transformPoint(const tf::TransformListener&);
 };
 
 
@@ -87,19 +103,25 @@ void maze_object::callback_inputDepth(const sensor_msgs::ImageConstPtr& msg)
     
     if(!isnan(z_world_temp))
     {
-      z_world = -z_world_temp;
+      object_point.point.z = z_world_temp;
 
     //cout<<"Depth at "<<x_pos<<" and "<<y_pos<<" is :\t"<<z_world<<"\n";
       // Calculate world coordinates
-      x_world = (x_pos - cx) / fx * z_world;//(y_pos - cy) / fy * z_world;
-      y_world = -(y_pos - cy) / fy * z_world;//(x_pos - cx) / fx * z_world;
-      //y_world = - y_world;    // based on observation
+      
+      object_point.point.x = (x_pos - cx) / fx * z_world;//(y_pos - cy) / fy * z_world;
+      object_point.point.y = -(y_pos - cy) / fy * z_world;//(x_pos - cx) / fx * z_world;
+      object_point.point.y = - object_point.point.y;    // based on observation
+
+      tf::TransformListener listener(ros::Duration(20));
+
+      //we'll transform a point once every second
+      ros::Timer timer = n.createTimer(ros::Duration(0.1), boost::bind(&transformPoint, boost::ref(listener)));
     }
     else
     {
-      x_world = z_world_temp;
-      y_world = z_world_temp;
-      z_world = z_world_temp;
+      object_point.point.x = z_world_temp;
+      object_point.point.y = z_world_temp;
+      object_point.point.z = z_world_temp;
     }
 
     //cout<<"World coordinates of object, w.r.t. camera are: "<<x_world<<" ,"<<y_world<<" ,"<<z_world<<"\n"; 
@@ -217,6 +239,26 @@ void maze_object::display_bBox(Rect *bBox, int ind)
 
 
 /*********************
+  Transform objects
+**********************/
+
+void maze_object::transformPoint(const tf::TransformListener& listener)
+{
+  try
+  {
+    listener.transformPoint("base_link", object_point, base_point);
+
+    ROS_INFO("base_object: (%.2f, %.2f. %.2f) -----> base_link: (%.2f, %.2f, %.2f) at time %.2f",
+        object_point.point.x, object_point.point.y, object_point.point.z,
+        base_point.point.x, base_point.point.y, base_point.point.z, base_point.header.stamp.toSec());
+  }
+  catch(tf::TransformException& ex)
+  {
+    ROS_ERROR("Received an exception trying to transform a point from \"base_laser\" to \"base_link\": %s", ex.what());
+  }
+}
+
+/*********************
   MAIN
 **********************/
 int main(int argc, char **argv)
@@ -247,7 +289,8 @@ int main(int argc, char **argv)
   ros::Publisher state_machine_pub = n.advertise<std_msgs::String>("/flag_done", 1); 
   
   // Publisher for publishing object coordinates
-  ros::Publisher obj_pose_pub = n.advertise<std_msgs::Float32MultiArray>("/object_position", 100);
+  //ros::Publisher obj_pose_pub = n.advertise<std_msgs::Float32MultiArray>("/object_position", 100);
+  ros::Publisher obj_pose_pub = n.advertise<geometry_msgs::PointStamped>("/object_position", 100);
   
   // Publisher for rviz marker
   ros::Publisher marker_pub = n.advertise<visualization_msgs::Marker>("/object_marker", 1);
@@ -285,7 +328,7 @@ int main(int argc, char **argv)
     if(max_bBox_area > 1000)
     {
       // Publish message to state machine: object found
-      std::cout<<"object found!"<<std::endl;
+      //std::cout<<"object found!"<<std::endl;
       string flag_string = "detect_object_done";
       //ss << "detect_object_done";
       //sm_msg.data = ss.str();
@@ -294,15 +337,16 @@ int main(int argc, char **argv)
 
       // Publish object coordinates
       // create a float array message
-      std_msgs::Float32MultiArray object_position;
-      //Clear array
-      object_position.data.clear();
+      // std_msgs::Float32MultiArray object_position;
+      // //Clear array
+      // object_position.data.clear();
 
-      object_position.data.push_back(object.x_world);
-      object_position.data.push_back(object.y_world);
-      object_position.data.push_back(object.z_world);
+      // object_position.data.push_back(object.x_world);
+      // object_position.data.push_back(object.y_world);
+      // object_position.data.push_back(object.z_world);
 
-      obj_pose_pub.publish(object_position);
+      //obj_pose_pub.publish(object_position);
+      obj_pose_pub.publish(object.base_point);
 
 
       // Publish a marker for detected object
@@ -323,9 +367,9 @@ int main(int argc, char **argv)
       marker.action = visualization_msgs::Marker::ADD;
 
       // Set the pose of the marker.  This is a full 6DOF pose relative to the frame/time specified in the header
-      marker.pose.position.x = object.x_world;
-      marker.pose.position.y = object.y_world;
-      marker.pose.position.z = object.z_world;
+      marker.pose.position.x = object.object_point.x;
+      marker.pose.position.y = object.object_point.y;
+      marker.pose.position.z = object.object_point.z;
       marker.pose.orientation.x = 0.0;
       marker.pose.orientation.y = 0.0;
       marker.pose.orientation.z = 0.0;
