@@ -1,9 +1,9 @@
 <launch>
 
-  <arg name="map_file" default="lab_maze_2017.txt" />
+  <arg name="map_file" default="small_maze.txt" />
   <arg name="x_offset" default="0.2"/>
   <arg name="y_offset" default="0.2"/>
-  <arg name="theta_offset" default="0.0"/>
+  <arg name="theta_offset" default="1.57"/>
 
   <!-- load the world node -->
   <node pkg="ras_maze_map" type="ras_maze_map_node" name="ras_maze_map_node"  >
